@@ -1,0 +1,54 @@
+stages:
+  - test
+  - build
+  - scan
+
+variables:
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: ""
+  API_IMAGE: microservice-api:$CI_COMMIT_SHA
+  AUTH_IMAGE: microservice-auth:$CI_COMMIT_SHA
+
+# Stage 1: SAST (Static Application Security Testing)
+sast-semgrep:
+  stage: test
+  image: returntocorp/semgrep:latest
+  script:
+    - semgrep scan --config=auto --error
+
+# Stage 2: Build Docker Images using Docker-in-Docker (dind)
+build-images:
+  stage: build
+  image: docker:24.0.5
+  services:
+    - name: docker:24.0.5-dind
+  script:
+    - docker build -t $API_IMAGE ./api-service
+    - docker build -t $AUTH_IMAGE ./auth-service
+    # Save built images as artifacts so the scan stage can access them
+    - docker save -o api-image.tar $API_IMAGE
+    - docker save -o auth-image.tar $AUTH_IMAGE
+  artifacts:
+    paths:
+      - api-image.tar
+      - auth-image.tar
+    expire_in: 1 hour
+
+# Stage 3: Vulnerability Scanning with Trivy
+trivy-container-scan:
+  stage: scan
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [""]
+  needs:
+    - build-images
+  script:
+    # Load built images into local runtime
+    - docker load -i api-image.tar
+    - docker load -i auth-image.tar
+    
+    # Scan API Service image (Fails pipeline on HIGH or CRITICAL findings)
+    - trivy image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed $API_IMAGE
+    
+    # Scan Auth Service image (Fails pipeline on HIGH or CRITICAL findings)
+    - trivy image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed $AUTH_IMAGE
