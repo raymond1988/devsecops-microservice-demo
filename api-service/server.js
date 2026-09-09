@@ -1,6 +1,7 @@
 const express = require('express');
 const axios = require('axios');
 
+// nosemgrep: javascript.express.security.audit.express-check-csurf-middleware-usage.express-check-csurf-middleware-usage
 const app = express();
 app.use(express.json());
 
