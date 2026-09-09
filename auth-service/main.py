@@ -1,12 +1,15 @@
 from fastapi import FastAPI, Header, HTTPException
-import jwt
+import jwt, os
 import datetime
 
 app = FastAPI()
 
 # In production, load this securely from an environment variable / secrets manager
-SECRET_KEY = "super-secret-key-change-in-production"
+SECRET_KEY = os.getenv("JWT_SECRET") #"super-secret-key-change-in-production"
 ALGORITHM = "HS256"
+
+if not SECRET_KEY:
+    raise ValueError("CRITICAL: JWT_SECRET environment variable is not set!")
 
 @app.post("/login")
 def login(user_credentials: dict):

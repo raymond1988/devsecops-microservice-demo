@@ -13,6 +13,8 @@ variables:
 sast-semgrep:
   stage: test
   image: returntocorp/semgrep:latest
+  variables:
+    JWT_SECRET: $JWT_SECRET
   script:
     - semgrep scan --config=auto --error .
 
