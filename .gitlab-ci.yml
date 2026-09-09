@@ -14,7 +14,7 @@ sast-semgrep:
   stage: test
   image: returntocorp/semgrep:latest
   script:
-    - semgrep scan --config=auto --error
+    - semgrep scan --config=auto --error .
 
 # Stage 2: Build Docker Images using Docker-in-Docker
 build-images:
@@ -52,4 +52,3 @@ trivy-container-scan:
 
     # Scan Auth Service image (fails pipeline on HIGH/CRITICAL vulnerabilities)
     - trivy image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed $AUTH_IMAGE
-    
