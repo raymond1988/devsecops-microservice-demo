@@ -43,7 +43,5 @@ trivy-container-scan:
     name: aquasec/trivy:latest
     entrypoint: [""]
   script:
-    # Scan api-service image archive directly
-    - trivy image --input api-image.tar --severity HIGH,CRITICAL --exit-code 1
-    # Scan auth-service image archive directly
-    - trivy image --input auth-service-image.tar --severity HIGH,CRITICAL --exit-code 1
+    - trivy image --ignorefile .trivyignore --input api-image.tar --severity HIGH,CRITICAL --exit-code 1
+    - trivy image --ignorefile .trivyignore --input auth-service-image.tar --severity HIGH,CRITICAL --exit-code 1
