@@ -44,4 +44,4 @@ trivy-container-scan:
     entrypoint: [""]
   script:
     - trivy image --ignorefile .trivyignore --input api-image.tar --severity HIGH,CRITICAL --exit-code 1
-    - trivy image --ignorefile .trivyignore --input auth-service-image.tar --severity HIGH,CRITICAL --exit-code 1
+    - trivy image --ignorefile .trivyignore --input auth-image.tar --severity HIGH,CRITICAL --exit-code 1
