@@ -42,15 +42,8 @@ trivy-container-scan:
   image:
     name: aquasec/trivy:latest
     entrypoint: [""]
-  needs:
-    - build-images
   script:
-    # Load images built in stage 2
-    - docker load -i api-image.tar
-    - docker load -i auth-image.tar
-
-    # Scan API Service image (fails pipeline on HIGH/CRITICAL vulnerabilities)
-    - trivy image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed $API_IMAGE
-
-    # Scan Auth Service image (fails pipeline on HIGH/CRITICAL vulnerabilities)
-    - trivy image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed $AUTH_IMAGE
+    # Scan api-service image archive directly
+    - trivy image --input api-image.tar --severity HIGH,CRITICAL --exit-code 1
+    # Scan auth-service image archive directly
+    - trivy image --input auth-service-image.tar --severity HIGH,CRITICAL --exit-code 1
