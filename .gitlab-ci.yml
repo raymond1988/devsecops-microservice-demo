@@ -36,14 +36,23 @@ build-images:
       - auth-image.tar
     expire_in: 1 hour
 
-# Stage 3: Container Vulnerability Scanning with Trivy
+# Stage 3: Container Vulnerability Scanning & SBOM Generation
 trivy-container-scan:
   stage: scan
   image:
     name: aquasec/trivy:latest
     entrypoint: [""]
   script:
-    - echo "=== Scanning API Image ==="
+    # 1. Generate CycloneDX SBOMs for supply chain auditing
+    - trivy image --format cyclonedx --output sbom-api.json --input api-image.tar
+    - trivy image --format cyclonedx --output sbom-auth.json --input auth-image.tar
+    
+    # 2. Enforce vulnerability gating against policies
     - trivy image --ignorefile .trivyignore --input api-image.tar --severity HIGH,CRITICAL --exit-code 1
-    - echo "=== Scanning Auth Image ==="
     - trivy image --ignorefile .trivyignore --input auth-image.tar --severity HIGH,CRITICAL --exit-code 1
+  artifacts:
+    name: "sboms-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - sbom-api.json
+      - sbom-auth.json
+    expire_in: 30 days
