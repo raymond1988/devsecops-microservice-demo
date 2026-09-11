@@ -101,15 +101,14 @@ sign-images:
 # Stage 5: Automated Staging Deployment
 deploy-staging:
   stage: deploy-staging
-  image: alpine/k8s:1.28.2 # Example CLI image (kubectl/helm/ssh)
+  image: alpine/k8s:1.28.2
   environment:
     name: staging
     url: https://staging.example.com
   script:
     - echo "Deploying microservices to Staging environment..."
-    - echo "API Image: $API_IMAGE"
-    - echo "Auth Image: $AUTH_IMAGE"
-    # Replace with your actual cluster update command (e.g., kubectl set image, helm upgrade, or ssh deploy)
+    - echo "API Image $API_IMAGE"
+    - echo "Auth Image $AUTH_IMAGE"
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
 
@@ -122,10 +121,10 @@ deploy-production:
     url: https://example.com
   script:
     - echo "Deploying verified microservices to Production..."
-    - echo "Deploying API Image: $API_IMAGE"
-    - echo "Deploying Auth Image: $AUTH_IMAGE"
-    # Replace with your actual production cluster deployment command
+    - echo "Deploying API Image $API_IMAGE"
+    - echo "Deploying Auth Image $AUTH_IMAGE"
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
-      when: manual # Requires an engineer to click "Play" in GitLab UI
-      allow_failure: false # Pipeline stays blocked/pending until approved or canceled
+      when: manual
+      allow_failure: false
+      
