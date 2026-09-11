@@ -3,6 +3,8 @@ stages:
   - build
   - scan
   - sign
+  - deploy-staging
+  - deploy-production
 
 variables:
   DOCKER_DRIVER: overlay2
@@ -37,7 +39,6 @@ build-images:
     - docker build -t $AUTH_IMAGE ./auth-service
     - docker push $API_IMAGE
     - docker push $AUTH_IMAGE
-    # Save tar artifacts for Trivy local scan
     - docker save -o api-image.tar $API_IMAGE
     - docker save -o auth-image.tar $AUTH_IMAGE
   artifacts:
@@ -46,7 +47,7 @@ build-images:
       - auth-image.tar
     expire_in: 1 hour
 
-# Stage 3: Container Vulnerability Scanning & SBOM
+# Stage 3: Vulnerability Scanning & SBOM
 trivy-container-scan:
   stage: scan
   image:
@@ -71,13 +72,40 @@ sign-images:
     name: bitnami/cosign:latest
     entrypoint: [""]
   script:
-    # Authenticate to GitLab Container Registry
     - cosign login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
-    
-    # Sign images using GitLab OIDC Identity Token
     - cosign sign --yes $API_IMAGE
     - cosign sign --yes $AUTH_IMAGE
-    
-    # Verify the signatures against Sigstore OIDC issuer
     - cosign verify --certificate-identity-regexp "https://gitlab.com/" --certificate-oidc-issuer "https://gitlab.com" $API_IMAGE
     - cosign verify --certificate-identity-regexp "https://gitlab.com/" --certificate-oidc-issuer "https://gitlab.com" $AUTH_IMAGE
+
+# Stage 5: Automated Staging Deployment
+deploy-staging:
+  stage: deploy-staging
+  image: alpine/k8s:1.28.2 # Example CLI image (kubectl/helm/ssh)
+  environment:
+    name: staging
+    url: https://staging.example.com
+  script:
+    - echo "Deploying microservices to Staging environment..."
+    - echo "API Image: $API_IMAGE"
+    - echo "Auth Image: $AUTH_IMAGE"
+    # Replace with your actual cluster update command (e.g., kubectl set image, helm upgrade, or ssh deploy)
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# Stage 6: Production Deployment (Manual Gate)
+deploy-production:
+  stage: deploy-production
+  image: alpine/k8s:1.28.2
+  environment:
+    name: production
+    url: https://example.com
+  script:
+    - echo "Deploying verified microservices to Production..."
+    - echo "Deploying API Image: $API_IMAGE"
+    - echo "Deploying Auth Image: $AUTH_IMAGE"
+    # Replace with your actual production cluster deployment command
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual # Requires an engineer to click "Play" in GitLab UI
+      allow_failure: false # Pipeline stays blocked/pending until approved or canceled
