@@ -47,7 +47,9 @@ build-images:
       - auth-image.tar
     expire_in: 1 hour
 
-# Stage 3: Vulnerability Scanning & SBOM Generation
+# Stage 3: Vulnerability Scanning, SBOM Generation & Dependency Management
+
+# Job 1: Container Security Scanning & CycloneDX SBOM Export
 trivy-container-scan:
   stage: scan
   image:
@@ -67,8 +69,21 @@ trivy-container-scan:
   rules:
     # Run automatically on standard commits to main
     - if: $CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE != "schedule"
-    # Run specifically during scheduled pipeline executions
-    - if: $CI_PIPELINE_SOURCE == "schedule"
+    # Run specifically during scheduled CVE audit pipeline executions
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $RENOVATE_RUN != "true"
+
+# Job 2: Automated Dependency Updates via Renovate
+renovate-deps:
+  stage: scan
+  image: renovate/renovate:latest
+  script:
+    - renovate
+  variables:
+    RENOVATE_TOKEN: $RENOVATE_GITLAB_TOKEN
+    RENOVATE_EXTRA_FLAGS: "$CI_PROJECT_PATH"
+  rules:
+    # Executes ONLY when a pipeline schedule passes RENOVATE_RUN="true"
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $RENOVATE_RUN == "true"
 
 # Stage 4: Keyless Image Signing with Cosign
 sign-images:
