@@ -1,21 +1,34 @@
 version: '3.8'
 
-networks:
-  internal-net:
-    driver: bridge
-
 services:
   api-service:
     build: ./api-service
     ports:
-      - "3000:3000" # Exposed to host machine for external access
-    networks:
-      - internal-net
-    environment:
-      - AUTH_SERVICE_URL=http://auth-service:5000
+      - "3000:3000"
+    read_only: true # Enforces read-only root filesystem
+    tmpfs:
+      - /tmp:rw,noexec,nosuid # Writable in-memory tmp mount without execution rights
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 256M
+        reservations:
+          cpus: '0.10'
+          memory: 64M
 
   auth-service:
     build: ./auth-service
-    # Notice: No 'ports' mapping here. Reachable ONLY by api-service over internal-net
-    networks:
-      - internal-net
+    ports:
+      - "5000:5000"
+    read_only: true # Enforces read-only root filesystem
+    tmpfs:
+      - /tmp:rw,noexec,nosuid
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 256M
+        reservations:
+          cpus: '0.10'
+          memory: 64M

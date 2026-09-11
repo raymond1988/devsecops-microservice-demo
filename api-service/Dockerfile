@@ -1,9 +1,3 @@
-# Stage 1: Dependency Builder
-FROM node:20-alpine AS builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --omit=dev
-
 # Stage 2: Hardened Runtime Environment
 FROM node:20-alpine
 WORKDIR /app
@@ -21,6 +15,9 @@ COPY . .
 # Assign non-root permissions
 RUN chown -R node:node /app
 USER node
+
+# Designate explicit ephemeral volume mount point
+VOLUME /tmp
 
 EXPOSE 3000
 CMD ["node", "server.js"]

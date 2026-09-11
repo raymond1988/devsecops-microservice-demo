@@ -1,4 +1,3 @@
-
 FROM python:3.11-alpine
 WORKDIR /app
 
@@ -8,13 +7,15 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 COPY requirements.txt .
 
-# Uninstall any pre-installed msgpack versions, then force upgrade
-RUN pip uninstall -y msgpack \
-    && pip install --no-cache-dir --upgrade pip setuptools wheel jaraco.context "msgpack>=1.2.1" \
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel jaraco.context \
     && pip install --no-cache-dir -r requirements.txt
 
 COPY --chown=appuser:appgroup . .
 
 USER appuser
+
+# Designate explicit ephemeral volume mount point
+VOLUME /tmp
+
 EXPOSE 5000
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5000"]
