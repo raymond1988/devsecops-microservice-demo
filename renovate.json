@@ -10,11 +10,8 @@
       "matchPackagePatterns": ["*"],
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "all non-major dependencies",
-      "groupSlugs": "non-major"
-    },
-    {
-      "matchManagers": ["pip_requirements"],
-      "rangeStrategy": "replace"
+      "groupSlugs": "non-major",
+      "minimumReleaseAge": "7 days"
     }
   ],
   "vulnerabilityAlerts": {
