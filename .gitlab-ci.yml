@@ -47,7 +47,7 @@ build-images:
       - auth-image.tar
     expire_in: 1 hour
 
-# Stage 3: Vulnerability Scanning & SBOM
+# Stage 3: Vulnerability Scanning & SBOM Generation
 trivy-container-scan:
   stage: scan
   image:
@@ -64,6 +64,11 @@ trivy-container-scan:
       - sbom-api.json
       - sbom-auth.json
     expire_in: 30 days
+  rules:
+    # Run automatically on standard commits to main
+    - if: $CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE != "schedule"
+    # Run specifically during scheduled pipeline executions
+    - if: $CI_PIPELINE_SOURCE == "schedule"
 
 # Stage 4: Keyless Image Signing with Cosign
 sign-images:
