@@ -2,12 +2,19 @@ stages:
   - test
   - build
   - scan
+  - sign
 
 variables:
   DOCKER_DRIVER: overlay2
   DOCKER_TLS_CERTDIR: ""
-  API_IMAGE: microservice-api:$CI_COMMIT_SHA
-  AUTH_IMAGE: microservice-auth:$CI_COMMIT_SHA
+  API_IMAGE: $CI_REGISTRY_IMAGE/api-service:$CI_COMMIT_SHA
+  AUTH_IMAGE: $CI_REGISTRY_IMAGE/auth-service:$CI_COMMIT_SHA
+
+# Enable OIDC ID token for keyless Cosign authentication
+default:
+  id_tokens:
+    SIGSTORE_ID_TOKEN:
+      aud: sigstore
 
 # Stage 1: Static Application Security Testing (SAST)
 sast-semgrep:
@@ -18,16 +25,19 @@ sast-semgrep:
   script:
     - semgrep scan --config=auto --error .
 
-# Stage 2: Build Docker Images using Docker-in-Docker
+# Stage 2: Build & Push Docker Images
 build-images:
   stage: build
   image: docker:24.0.5
   services:
     - name: docker:24.0.5-dind
   script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
     - docker build -t $API_IMAGE ./api-service
     - docker build -t $AUTH_IMAGE ./auth-service
-    # Save images as artifacts so the scan stage can load them
+    - docker push $API_IMAGE
+    - docker push $AUTH_IMAGE
+    # Save tar artifacts for Trivy local scan
     - docker save -o api-image.tar $API_IMAGE
     - docker save -o auth-image.tar $AUTH_IMAGE
   artifacts:
@@ -36,18 +46,15 @@ build-images:
       - auth-image.tar
     expire_in: 1 hour
 
-# Stage 3: Container Vulnerability Scanning & SBOM Generation
+# Stage 3: Container Vulnerability Scanning & SBOM
 trivy-container-scan:
   stage: scan
   image:
     name: aquasec/trivy:latest
     entrypoint: [""]
   script:
-    # 1. Generate CycloneDX SBOMs for supply chain auditing
     - trivy image --format cyclonedx --output sbom-api.json --input api-image.tar
     - trivy image --format cyclonedx --output sbom-auth.json --input auth-image.tar
-    
-    # 2. Enforce vulnerability gating against policies
     - trivy image --ignorefile .trivyignore --input api-image.tar --severity HIGH,CRITICAL --exit-code 1
     - trivy image --ignorefile .trivyignore --input auth-image.tar --severity HIGH,CRITICAL --exit-code 1
   artifacts:
@@ -56,3 +63,21 @@ trivy-container-scan:
       - sbom-api.json
       - sbom-auth.json
     expire_in: 30 days
+
+# Stage 4: Keyless Image Signing with Cosign
+sign-images:
+  stage: sign
+  image:
+    name: bitnami/cosign:latest
+    entrypoint: [""]
+  script:
+    # Authenticate to GitLab Container Registry
+    - cosign login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+    
+    # Sign images using GitLab OIDC Identity Token
+    - cosign sign --yes $API_IMAGE
+    - cosign sign --yes $AUTH_IMAGE
+    
+    # Verify the signatures against Sigstore OIDC issuer
+    - cosign verify --certificate-identity-regexp "https://gitlab.com/" --certificate-oidc-issuer "https://gitlab.com" $API_IMAGE
+    - cosign verify --certificate-identity-regexp "https://gitlab.com/" --certificate-oidc-issuer "https://gitlab.com" $AUTH_IMAGE
