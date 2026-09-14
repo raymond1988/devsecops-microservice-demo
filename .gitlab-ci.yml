@@ -42,19 +42,20 @@ build-images:
 # Stage 3: Vulnerability Scanning, SBOM Generation & Dependency Management
 
 # Job 1: Container Security Scanning & CycloneDX SBOM Export
+# Job 1: Container Security Scanning & CycloneDX SBOM Export
 trivy-container-scan:
   stage: scan
   image:
     name: aquasec/trivy:latest
     entrypoint: [""]
   script:
-    - trivy registry login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+    - echo "$CI_REGISTRY_PASSWORD" | trivy registry login --username "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
     
-    # Generate CycloneDX SBOMs directly from pushed images
+    # Generate CycloneDX SBOMs
     - trivy image --format cyclonedx --output sbom-api.json $API_IMAGE
     - trivy image --format cyclonedx --output sbom-auth.json $AUTH_IMAGE
     
-    # Vulnerability scanning directly against remote registry targets
+    # Vulnerability Scanning
     - trivy image --ignorefile .trivyignore --severity HIGH,CRITICAL --exit-code 1 $API_IMAGE
     - trivy image --ignorefile .trivyignore --severity HIGH,CRITICAL --exit-code 1 $AUTH_IMAGE
   artifacts:
@@ -66,7 +67,7 @@ trivy-container-scan:
   rules:
     - if: $CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE != "schedule"
     - if: $CI_PIPELINE_SOURCE == "schedule" && $RENOVATE_RUN != "true"
-
+    
 # Job 2: Automated Dependency Updates via Renovate
 renovate-deps:
   stage: scan
