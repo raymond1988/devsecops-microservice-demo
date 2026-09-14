@@ -2,3 +2,4 @@ fastapi
 uvicorn 
 pyjwt 
 msgpack>=1.2.1
+jaraco.context==6.1.0

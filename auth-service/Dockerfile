@@ -1,4 +1,4 @@
-# Stage 1: Dependency Builder
+# Stage 1: Builder
 FROM python:3.11-alpine AS builder
 WORKDIR /app
 
@@ -7,27 +7,25 @@ RUN apk update && apk upgrade --no-cache \
 
 COPY requirements.txt .
 
-# Install dependencies into user directory
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel jaraco.context \
-    && pip install --no-cache-dir --user -r requirements.txt
+# Install dependencies into system site-packages inside builder
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
+    && pip install --no-cache-dir -r requirements.txt
 
 # Stage 2: Hardened Runtime
 FROM python:3.11-alpine
 WORKDIR /app
 
-# Patch OS vulnerabilities and set up non-root user
 RUN apk update && apk upgrade --no-cache \
     && addgroup -S appgroup && adduser -S appuser -G appgroup
 
-# Copy built Python packages from Stage 1
-COPY --from=builder /root/.local /home/appuser/.local
+# Copy installed site-packages directly from Stage 1
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
 COPY --chown=appuser:appgroup . .
 
-# Ensure appuser path includes local user-installed binaries (e.g. uvicorn)
-ENV PATH=/home/appuser/.local/bin:$PATH
 USER appuser
 
-# Designate explicit ephemeral volume mount point
 VOLUME /tmp
 
 EXPOSE 5000
