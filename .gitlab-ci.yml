@@ -36,7 +36,7 @@ build-images:
   script:
     - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
     - docker build -t $API_IMAGE ./api-service
-    - docker build -t $AUTH_IMAGE ./auth-service
+    - docker build --no-cache -t $AUTH_IMAGE ./auth-service
     - docker push $API_IMAGE
     - docker push $AUTH_IMAGE
     - docker save -o api-image.tar $API_IMAGE
@@ -58,8 +58,8 @@ trivy-container-scan:
   script:
     - trivy image --format cyclonedx --output sbom-api.json --input api-image.tar
     - trivy image --format cyclonedx --output sbom-auth.json --input auth-image.tar
-    - trivy image --ignorefile .trivyignore --input api-image.tar --severity HIGH,CRITICAL --exit-code 1
-    - trivy image --ignorefile .trivyignore --input auth-image.tar --severity HIGH,CRITICAL --exit-code 1
+    - trivy image --ignorefile .trivyignore --input $API_IMAGE --severity HIGH,CRITICAL --exit-code 1
+    - trivy image --ignorefile .trivyignore --input $AUTH_IMAGE --severity HIGH,CRITICAL --exit-code 1
   artifacts:
     name: "sboms-$CI_COMMIT_SHORT_SHA"
     paths:
