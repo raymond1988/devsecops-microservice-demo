@@ -12,7 +12,6 @@ variables:
   API_IMAGE: $CI_REGISTRY_IMAGE/api-service:$CI_COMMIT_SHA
   AUTH_IMAGE: $CI_REGISTRY_IMAGE/auth-service:$CI_COMMIT_SHA
 
-# Enable OIDC ID token for keyless Cosign authentication
 default:
   id_tokens:
     SIGSTORE_ID_TOKEN:
@@ -39,13 +38,6 @@ build-images:
     - docker build --no-cache -t $AUTH_IMAGE ./auth-service
     - docker push $API_IMAGE
     - docker push $AUTH_IMAGE
-    - docker save -o api-image.tar $API_IMAGE
-    - docker save -o auth-image.tar $AUTH_IMAGE
-  artifacts:
-    paths:
-      - api-image.tar
-      - auth-image.tar
-    expire_in: 1 hour
 
 # Stage 3: Vulnerability Scanning, SBOM Generation & Dependency Management
 
@@ -56,10 +48,15 @@ trivy-container-scan:
     name: aquasec/trivy:latest
     entrypoint: [""]
   script:
-    - trivy image --format cyclonedx --output sbom-api.json --input api-image.tar
-    - trivy image --format cyclonedx --output sbom-auth.json --input auth-image.tar
-    - trivy image --ignorefile .trivyignore --input $API_IMAGE --severity HIGH,CRITICAL --exit-code 1
-    - trivy image --ignorefile .trivyignore --input $AUTH_IMAGE --severity HIGH,CRITICAL --exit-code 1
+    - trivy registry login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+    
+    # Generate CycloneDX SBOMs directly from pushed images
+    - trivy image --format cyclonedx --output sbom-api.json $API_IMAGE
+    - trivy image --format cyclonedx --output sbom-auth.json $AUTH_IMAGE
+    
+    # Vulnerability scanning directly against remote registry targets
+    - trivy image --ignorefile .trivyignore --severity HIGH,CRITICAL --exit-code 1 $API_IMAGE
+    - trivy image --ignorefile .trivyignore --severity HIGH,CRITICAL --exit-code 1 $AUTH_IMAGE
   artifacts:
     name: "sboms-$CI_COMMIT_SHORT_SHA"
     paths:
@@ -67,9 +64,7 @@ trivy-container-scan:
       - sbom-auth.json
     expire_in: 30 days
   rules:
-    # Run automatically on standard commits to main
     - if: $CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE != "schedule"
-    # Run specifically during scheduled CVE audit pipeline executions
     - if: $CI_PIPELINE_SOURCE == "schedule" && $RENOVATE_RUN != "true"
 
 # Job 2: Automated Dependency Updates via Renovate
@@ -82,7 +77,6 @@ renovate-deps:
     RENOVATE_TOKEN: $RENOVATE_GITLAB_TOKEN
     RENOVATE_EXTRA_FLAGS: "$CI_PROJECT_PATH"
   rules:
-    # Executes ONLY when a pipeline schedule passes RENOVATE_RUN="true"
     - if: $CI_PIPELINE_SOURCE == "schedule" && $RENOVATE_RUN == "true"
 
 # Stage 4: Keyless Image Signing with Cosign
@@ -127,4 +121,3 @@ deploy-production:
     - if: $CI_COMMIT_BRANCH == "main"
       when: manual
       allow_failure: false
-      
