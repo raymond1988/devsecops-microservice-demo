@@ -3,6 +3,8 @@ stages:
   - build
   - scan
   - sign
+  - infra-plan
+  - infra-apply
   - deploy-staging
   - deploy-production
 
@@ -96,6 +98,41 @@ sign-images:
     - cosign verify --certificate-identity-regexp "https://gitlab.com/" --certificate-oidc-issuer "https://gitlab.com" $AUTH_IMAGE
 
 # Stage 5: Automated Staging Deployment
+tf-plan:
+  stage: infra-plan
+  image:
+    name: hashicorp/terraform:1.6.0
+    entrypoint: [""]
+  script:
+    - cd terraform
+    - terraform init
+    - terraform fmt -check
+    - terraform validate
+    - terraform plan -out=tfplan
+  artifacts:
+    name: "tfplan-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - terraform/tfplan
+    expire_in: 7 days
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# Stage 6: Terraform Apply (Infra Provisioning)
+tf-apply:
+  stage: infra-apply
+  image:
+    name: hashicorp/terraform:1.6.0
+    entrypoint: [""]
+  script:
+    - cd terraform
+    - terraform init
+    - terraform apply -auto-approve tfplan
+  dependencies:
+    - tf-plan
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# Stage 7: Automated Staging Deployment
 deploy-staging:
   stage: deploy-staging
   image: alpine/k8s:1.28.2
@@ -109,7 +146,7 @@ deploy-staging:
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
 
-# Stage 6: Production Deployment (Manual Gate)
+# Stage 8: Production Deployment (Manual Gate)
 deploy-production:
   stage: deploy-production
   image: alpine/k8s:1.28.2

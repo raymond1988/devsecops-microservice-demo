@@ -1,5 +1,25 @@
+#Node
 node_modules/
 __pycache__/
 *.pyc
-.DS_Store
+
+# Environment & Local Secrets
 .env
+*.env
+*.pem
+*.key
+
+# Terraform Local State & Cache
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
+
+# Docker Build Artifacts & SBOMs
+*.tar
+sbom-*.json
+
+# OS & Editor Files
+.DS_Store
+.idea/
+.vscode/
