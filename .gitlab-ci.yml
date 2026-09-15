@@ -49,6 +49,8 @@ trivy-container-scan:
     name: aquasec/trivy:latest
     entrypoint: [""]
   script:
+  # Clear local scan cache
+    - trivy clean --all
     - echo "$CI_REGISTRY_PASSWORD" | trivy registry login --username "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
     
     # Generate CycloneDX SBOMs
