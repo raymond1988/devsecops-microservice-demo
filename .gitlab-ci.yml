@@ -97,12 +97,21 @@ sign-images:
     - cosign verify --certificate-identity-regexp "https://gitlab.com/" --certificate-oidc-issuer "https://gitlab.com" $API_IMAGE
     - cosign verify --certificate-identity-regexp "https://gitlab.com/" --certificate-oidc-issuer "https://gitlab.com" $AUTH_IMAGE
 
-# Stage 5: Automated Staging Deployment
+# Stage 5: Terraform Plan
 tf-plan:
   stage: infra-plan
   image:
     name: hashicorp/terraform:1.6.0
     entrypoint: [""]
+  id_tokens:
+    AWS_TOKEN:
+      aud: https://gitlab.com
+  before_script:
+    - mkdir -p ~/.aws
+    - echo "$AWS_TOKEN" > /tmp/aws_token
+    - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/aws_token
+    - export AWS_ROLE_ARN=$AWS_ROLE_ARN
+    - export AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION
   script:
     - cd terraform
     - terraform init
@@ -123,6 +132,15 @@ tf-apply:
   image:
     name: hashicorp/terraform:1.6.0
     entrypoint: [""]
+  id_tokens:
+    AWS_TOKEN:
+      aud: https://gitlab.com
+  before_script:
+    - mkdir -p ~/.aws
+    - echo "$AWS_TOKEN" > /tmp/aws_token
+    - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/aws_token
+    - export AWS_ROLE_ARN=$AWS_ROLE_ARN
+    - export AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION
   script:
     - cd terraform
     - terraform init
